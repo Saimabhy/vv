@@ -1,0 +1,23 @@
+{
+  "name": "graph-sync-pipeline",
+  "version": "0.1.0",
+  "description": "Extracts Org/Contacts/Projects/Assets from Microsoft 365 (OneDrive, Emails, SharePoint) and normalizes them into a deduplicated target model.",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "ts-node src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@azure/msal-node": "^2.13.1",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "dotenv": "^16.4.5",
+    "isomorphic-fetch": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  }
+}
