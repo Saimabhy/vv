@@ -7,15 +7,21 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "ts-node src/index.ts",
+    "test-me": "ts-node src/testMe.ts",
+    "test-eml": "ts-node src/testFromEml.ts",
+    "test-pst": "ts-node src/testFromPst.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@azure/msal-node": "^2.13.1",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "dotenv": "^16.4.5",
-    "isomorphic-fetch": "^3.0.0"
+    "isomorphic-fetch": "^3.0.0",
+    "mailparser": "^3.9.33",
+    "pst-extractor": "^1.12.0"
   },
   "devDependencies": {
+    "@types/mailparser": "^3.9.0",
     "@types/node": "^20.14.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.3"

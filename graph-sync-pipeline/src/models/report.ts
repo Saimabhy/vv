@@ -10,7 +10,12 @@ export interface Issue {
   context?: Record<string, unknown>;
 }
 
-export function createIssueCollector() {
+export interface IssueCollector {
+  add(level: IssueLevel, message: string, context?: Record<string, unknown>): void;
+  all(): Issue[];
+}
+
+export function createIssueCollector(): IssueCollector {
   const issues: Issue[] = [];
   return {
     add(level: IssueLevel, message: string, context?: Record<string, unknown>) {

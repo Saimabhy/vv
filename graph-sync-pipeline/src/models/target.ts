@@ -7,8 +7,11 @@ export interface Org {
 }
 
 export interface Contact {
-  email: string;
+  // Azure AD user id for a directory-matched person, or "email:<address>"
+  // for someone only seen in message traffic (e.g. an external contact).
+  id: string;
   displayName: string;
+  emails: string[];
   sources: SourceSystem[];
 }
 

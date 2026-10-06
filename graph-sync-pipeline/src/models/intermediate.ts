@@ -1,4 +1,4 @@
-export type SourceSystem = "oneDrive" | "emails" | "sharePoint";
+export type SourceSystem = "oneDrive" | "emails" | "sharePoint" | "directory";
 
 export interface RawOrg {
   domain: string;
@@ -7,7 +7,11 @@ export interface RawOrg {
 }
 
 export interface RawContact {
-  email: string;
+  // Stable Azure AD user id, set only when this record comes from the
+  // company directory. A person can have several emails (mail + aliases);
+  // this id is what lets those get merged into a single contact.
+  personId?: string;
+  emails: string[];
   displayName?: string;
   source: SourceSystem;
 }
