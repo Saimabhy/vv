@@ -1,4 +1,7 @@
 import { runPipeline } from "./pipeline";
+import { exportToCsv } from "./export/csv";
+
+const OUTPUT_DIR = "output";
 
 async function main() {
   const { model, issues } = await runPipeline();
@@ -13,6 +16,9 @@ async function main() {
       console.log(`  [${issue.level}] ${issue.message}`);
     }
   }
+
+  exportToCsv(model, OUTPUT_DIR);
+  console.log(`\nExported to ${OUTPUT_DIR}/contacts.csv, orgs.csv, projects.csv`);
 }
 
 main().catch((error) => {

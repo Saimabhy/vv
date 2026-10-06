@@ -2,17 +2,25 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import { createGraphClient } from "./graph/graphClient";
 import { config } from "./config";
 import { mergeExtractionResults } from "./models/intermediate";
+import { extractDirectory } from "./sources/directory";
 import { extractOneDrive } from "./sources/oneDrive";
 import { extractEmails } from "./sources/emails";
 import { extractSharePoint, resolveDefaultListId, resolveSiteId } from "./sources/sharePoint";
 import { normalize, NormalizeOutput } from "./transform/normalize";
 
-// Runs the OneDrive + Emails extraction once per target user (the "xN" loop
-// on the whiteboard), then merges in Projects pulled directly from SharePoint.
+// Pulls the company directory once (authoritative source for Contacts), then
+// runs OneDrive + Emails extraction once per target user (the "xN" loop on
+// the whiteboard), and merges in Projects pulled directly from SharePoint.
 export async function runPipeline(): Promise<NormalizeOutput> {
+  if (!config.sharePointSite) {
+    throw new Error("GRAPH_SHAREPOINT_SITE is required for the full pipeline (runPipeline)");
+  }
+
   const client: Client = createGraphClient();
 
-  const perUserResults = [];
+  const directoryResult = await extractDirectory(client);
+
+  const perUserResults = [directoryResult];
   for (const userId of config.targetUsers) {
     const [oneDriveResult, emailsResult] = await Promise.all([
       extractOneDrive(client, userId),

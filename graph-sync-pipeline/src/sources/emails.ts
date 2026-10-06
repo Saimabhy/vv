@@ -13,8 +13,9 @@ interface Message {
 }
 
 // Extracts Contacts (message participants) and Org (their domains) from a
-// user's mailbox. Projects are not derived from emails yet — the whiteboard
-// shows this feeding the intermediate model only.
+// user's mailbox. Pass userId "me" to read the signed-in user's own mailbox
+// under delegated (device code) auth. Projects are not derived from emails
+// yet — the whiteboard shows this feeding the intermediate model only.
 export async function extractEmails(
   client: Client,
   userId: string
@@ -23,8 +24,9 @@ export async function extractEmails(
   const seenEmails = new Set<string>();
   const seenDomains = new Set<string>();
 
+  const basePath = userId === "me" ? "/me" : `/users/${userId}`;
   const response = await client
-    .api(`/users/${userId}/messages`)
+    .api(`${basePath}/messages`)
     .select("id,subject,from,toRecipients")
     .top(50)
     .get();
@@ -39,7 +41,7 @@ export async function extractEmails(
     if (!seenEmails.has(email)) {
       seenEmails.add(email);
       result.contacts.push({
-        email,
+        emails: [email],
         displayName: recipient?.emailAddress?.name,
         source: "emails",
       });

@@ -1,6 +1,6 @@
-import { ExtractionResult } from "../models/intermediate";
+import { ExtractionResult, RawContact } from "../models/intermediate";
 import { Contact, Org, Project, TargetModel } from "../models/target";
-import { createIssueCollector, Issue } from "../models/report";
+import { createIssueCollector, IssueCollector, Issue } from "../models/report";
 
 export interface NormalizeOutput {
   model: TargetModel;
@@ -8,7 +8,7 @@ export interface NormalizeOutput {
 }
 
 // Merges raw per-source records into a deduplicated target model.
-// Orgs are deduped by domain, Contacts by email, Projects by key.
+// Orgs are deduped by domain, Contacts by person, Projects by key.
 export function normalize(extraction: ExtractionResult): NormalizeOutput {
   const issueCollector = createIssueCollector();
 
@@ -26,26 +26,7 @@ export function normalize(extraction: ExtractionResult): NormalizeOutput {
     }
   }
 
-  const contactsByEmail = new Map<string, Contact>();
-  for (const raw of extraction.contacts) {
-    const existing = contactsByEmail.get(raw.email);
-    if (existing) {
-      if (!existing.sources.includes(raw.source)) existing.sources.push(raw.source);
-      if (!existing.displayName && raw.displayName) existing.displayName = raw.displayName;
-    } else {
-      if (!raw.displayName) {
-        issueCollector.add("warning", `Contact ${raw.email} has no display name`, {
-          email: raw.email,
-          source: raw.source,
-        });
-      }
-      contactsByEmail.set(raw.email, {
-        email: raw.email,
-        displayName: raw.displayName ?? raw.email,
-        sources: [raw.source],
-      });
-    }
-  }
+  const contacts = mergeContacts(extraction.contacts, issueCollector);
 
   const projectsByKey = new Map<string, Project>();
   for (const raw of extraction.projects) {
@@ -70,9 +51,75 @@ export function normalize(extraction: ExtractionResult): NormalizeOutput {
   return {
     model: {
       orgs: [...orgsByDomain.values()],
-      contacts: [...contactsByEmail.values()],
+      contacts,
       projects: [...projectsByKey.values()],
     },
     issues: issueCollector.all(),
   };
+}
+
+// The directory (Azure AD) is authoritative: each personId is one contact,
+// however many emails it owns. Contacts from other sources (e.g. message
+// senders) are matched against those known emails and merged in; only an
+// email that matches nobody in the directory becomes its own external
+// contact (e.g. a person outside the company).
+function mergeContacts(rawContacts: RawContact[], issueCollector: IssueCollector): Contact[] {
+  const contactsByPersonId = new Map<string, Contact>();
+  const personIdByEmail = new Map<string, string>();
+
+  for (const raw of rawContacts) {
+    if (!raw.personId) continue;
+
+    const existing = contactsByPersonId.get(raw.personId);
+    if (existing) {
+      if (!existing.sources.includes(raw.source)) existing.sources.push(raw.source);
+      for (const email of raw.emails) {
+        if (!existing.emails.includes(email)) existing.emails.push(email);
+      }
+    } else {
+      contactsByPersonId.set(raw.personId, {
+        id: raw.personId,
+        displayName: raw.displayName ?? raw.emails[0],
+        emails: [...raw.emails],
+        sources: [raw.source],
+      });
+    }
+
+    for (const email of raw.emails) personIdByEmail.set(email, raw.personId);
+  }
+
+  const externalContactsByEmail = new Map<string, Contact>();
+  for (const raw of rawContacts) {
+    if (raw.personId) continue;
+
+    for (const email of raw.emails) {
+      const personId = personIdByEmail.get(email);
+      if (personId) {
+        const directoryContact = contactsByPersonId.get(personId)!;
+        if (!directoryContact.sources.includes(raw.source)) directoryContact.sources.push(raw.source);
+        continue;
+      }
+
+      const existing = externalContactsByEmail.get(email);
+      if (existing) {
+        if (!existing.sources.includes(raw.source)) existing.sources.push(raw.source);
+        continue;
+      }
+
+      if (!raw.displayName) {
+        issueCollector.add("warning", `Contact ${email} has no display name`, {
+          email,
+          source: raw.source,
+        });
+      }
+      externalContactsByEmail.set(email, {
+        id: `email:${email}`,
+        displayName: raw.displayName ?? email,
+        emails: [email],
+        sources: [raw.source],
+      });
+    }
+  }
+
+  return [...contactsByPersonId.values(), ...externalContactsByEmail.values()];
 }
