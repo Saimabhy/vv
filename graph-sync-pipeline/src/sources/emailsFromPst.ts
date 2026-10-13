@@ -6,14 +6,15 @@ interface FoundAddress {
   displayName?: string;
 }
 
-function collectFolder(folder: PSTFolder, found: FoundAddress[]): void {
+function collectFolder(folder: PSTFolder, found: FoundAddress[], progress: { processed: number }): void {
   if (folder.hasSubfolders) {
     for (const child of folder.getSubFolders()) {
-      collectFolder(child, found);
+      collectFolder(child, found, progress);
     }
   }
 
   if (folder.contentCount > 0) {
+    console.log(`  [pst] scanning folder "${folder.displayName}" (${folder.contentCount} items)...`);
     let email = folder.getNextChild() as PSTMessage | null;
     while (email != null) {
       if (email.senderEmailAddress) {
@@ -26,6 +27,12 @@ function collectFolder(folder: PSTFolder, found: FoundAddress[]): void {
           found.push({ email: address, displayName: recipient?.displayName || undefined });
         }
       }
+
+      progress.processed++;
+      if (progress.processed % 200 === 0) {
+        console.log(`  [pst] ${progress.processed} messages processed so far...`);
+      }
+
       email = folder.getNextChild() as PSTMessage | null;
     }
   }
@@ -40,9 +47,11 @@ export async function extractEmailsFromPst(pstFilePath: string): Promise<Extract
   const seenEmails = new Set<string>();
   const seenDomains = new Set<string>();
 
+  console.log(`[pst] opening ${pstFilePath}...`);
   const pstFile = new PSTFile(pstFilePath);
   const found: FoundAddress[] = [];
-  collectFolder(pstFile.getRootFolder(), found);
+  collectFolder(pstFile.getRootFolder(), found, { processed: 0 });
+  console.log(`[pst] done, found ${found.length} address occurrences`);
 
   for (const { email: rawEmail, displayName } of found) {
     const email = rawEmail.toLowerCase();
